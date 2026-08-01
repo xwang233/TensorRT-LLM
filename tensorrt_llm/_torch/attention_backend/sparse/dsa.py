@@ -1753,6 +1753,15 @@ class Indexer(nn.Module):
         self.ln_events = [torch.cuda.Event(), torch.cuda.Event()]
         self.use_cute_dsl_topk = (sparse_params.use_cute_dsl_topk
                                   and IS_CUTLASS_DSL_AVAILABLE)
+        # Benchmark-only override, so the CuTe-DSL decode top-k can be A/B'd
+        # against the C++ indexer_topk_decode within a single build on
+        # harnesses that cannot reach sparse_attention_config (the BTK sweep
+        # plugin models use_cute_dsl_paged_mqa_logits but not this flag).
+        # "1" forces on, "0" forces off; unset keeps the configured value.
+        _force_cute_dsl_topk = os.environ.get("TRTLLM_FORCE_CUTE_DSL_TOPK")
+        if _force_cute_dsl_topk is not None:
+            self.use_cute_dsl_topk = (_force_cute_dsl_topk == "1"
+                                      and IS_CUTLASS_DSL_AVAILABLE)
         self.use_cute_dsl_paged_mqa_logits = (
             sparse_params.use_cute_dsl_paged_mqa_logits
             and IS_CUTLASS_DSL_AVAILABLE)
