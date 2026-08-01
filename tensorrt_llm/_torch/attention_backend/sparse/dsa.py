@@ -1088,6 +1088,13 @@ class DSAtrtllmAttentionMetadata(TrtllmAttentionMetadata):
         self.enable_heuristic_topk = (
             sparse_metadata_params.enable_heuristic_topk
             and get_sm_version() >= 100)
+        # Benchmark-only override; see TRTLLM_FORCE_CUTE_DSL_TOPK below. Must be
+        # applied here AND at the Indexer site, since this one also gates
+        # allocation of the heuristic_prev_topk feedback buffers.
+        _force_gvr = os.environ.get("TRTLLM_FORCE_HEURISTIC_TOPK")
+        if _force_gvr is not None:
+            self.enable_heuristic_topk = (_force_gvr == "1"
+                                          and get_sm_version() >= 100)
         if self.enable_heuristic_topk:
             num_local_layers = self.kv_cache_manager.num_local_layers
             self.heuristic_prev_topk = self.get_empty(
@@ -1769,6 +1776,10 @@ class Indexer(nn.Module):
 
         self._enable_heuristic_topk = (sparse_params.enable_heuristic_topk
                                        and get_sm_version() >= 100)
+        _force_gvr = os.environ.get("TRTLLM_FORCE_HEURISTIC_TOPK")
+        if _force_gvr is not None:
+            self._enable_heuristic_topk = (_force_gvr == "1"
+                                           and get_sm_version() >= 100)
 
         if (self.use_cute_dsl_topk
                 or self.use_cute_dsl_paged_mqa_logits) and layer_idx == 0:
